@@ -406,7 +406,7 @@ const DEFAULT_SETTINGS: DndPluginSettings = {
 };
 
 const showHighlight = ViewPlugin.fromClass(class { }, {
-	decorations: (v) => {
+	decorations: () => {
 		return lineHightlight[highlightMode];
 	},
 });
@@ -425,7 +425,7 @@ export default class DragNDropPlugin extends Plugin {
 		const app = this.app;
 		const settings = await this.loadSettings();
 		const dragEventHandlers = EditorView.domEventHandlers({
-			dragover(event, editor) {
+			dragover(event: DragEvent, editor: EditorView) {
 				if (event.target instanceof HTMLElement) {
 					const line = event.target.closest(".cm-line");
 					processDragOver(line as HTMLElement, event.clientX);
@@ -433,12 +433,12 @@ export default class DragNDropPlugin extends Plugin {
 				}
 				event.preventDefault();
 			},
-			dragenter(event, view) {
+			dragenter(event: DragEvent, view: EditorView) {
 				if (event.target instanceof Element)
 					highlightWholeItem(app, event.target, view);
 				event.preventDefault();
 			},
-			drop(event, view) {
+			drop(event: DragEvent, view: EditorView) {
 				processDrop(app, event, settings, highlightMode, view);
 				lineHightlight = emptyRange();
 			},
