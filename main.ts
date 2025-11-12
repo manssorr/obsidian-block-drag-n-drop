@@ -60,6 +60,16 @@ function generateId(): string {
 	return Math.random().toString(36).substr(2, 6);
 }
 
+function isRTLText(text: string): boolean {
+	// RTL character ranges:
+	// Arabic: \u0600-\u06FF
+	// Hebrew: \u0590-\u05FF
+	// Persian/Farsi: Uses Arabic script
+	// Other RTL scripts
+	const rtlPattern = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+	return rtlPattern.test(text);
+}
+
 const dragHandle = (line: number, app: App) =>
 	new (class extends GutterMarker {
 		toDOM(editor: EditorView) {
@@ -72,6 +82,13 @@ const dragHandle = (line: number, app: App) =>
 			// TODO: think how to move paragraphs
 			// if (!block || (block.type !== "list" && block.type !== "paragraph"))
 			// 	return drag;
+			
+			// Detect RTL text direction
+			const lineText = editor.state.doc.line(line).text;
+			const isRTL = isRTLText(lineText);
+			if (isRTL) {
+				drag.setAttribute("data-rtl", "true");
+			}
 			
 			// Create Notion-style 6-dot handle using SVG
 			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -268,7 +285,6 @@ function processDrop(
 				targetLine.number >= pos.start.line &&
 				targetLine.number <= pos.end.line
 			) {
-				console.log("Moved inside same block - do nothing");
 				return;
 			}
 		}
@@ -328,7 +344,6 @@ function processDrop(
 			operations = { source: [changes], target: [insertBlockOp] };
 		}
 
-		console.log("Move item ", { dropMode, type }, operations);
 		const { source, target } = operations;
 		if (sourceEditor == targetEditor)
 			sourceEditor.dispatch({ changes: [...source, ...target] });
@@ -436,12 +451,22 @@ function highlightWholeItem(app: App, target: Element, editor: EditorView) {
 				)
 				: currentLines;
 
+		const currentDecorations = buildLineDecorations(currentLines, dragDestination);
+		const parentDecorations = buildLineDecorations(parentLines, dragParentDestination);
+		
 		lineHightlight = {
-			current: buildLineDecorations(currentLines, dragDestination),
-			parent: buildLineDecorations(parentLines, dragParentDestination),
+			current: currentDecorations,
+			parent: parentDecorations,
 		};
 
-		editor.dispatch({});
+		// Force view update to show decorations - use requestAnimationFrame to ensure DOM is ready
+		// and create a proper transaction that CodeMirror will recognize
+		requestAnimationFrame(() => {
+			editor.dispatch({
+				effects: [],
+				annotations: []
+			});
+		});
 	} catch (e) {
 		if (
 			e.message.match(
@@ -471,17 +496,24 @@ const DEFAULT_SETTINGS: DndPluginSettings = {
 	show_handle_on_hover: true,
 };
 
-const showHighlight = ViewPlugin.fromClass(class { }, {
-	decorations: () => {
+// ViewPlugin that shows drag highlights
+// Uses fromClass with decorations function that reads module-level state
+const showHighlight = ViewPlugin.fromClass(class {
+	decorations() {
+		// This method is called whenever the view updates
+		// It reads the current highlight state from module-level variables
 		return lineHightlight[highlightMode];
-	},
+	}
 });
 
-const processDragOver = (element: HTMLElement, offsetX: number) => {
+const processDragOver = (element: HTMLElement, offsetX: number, editor: EditorView) => {
 	const itemIndent = parseInt(element.style.paddingLeft, 10);
-	if (itemIndent + 2 < offsetX - element.getBoundingClientRect().left)
-		highlightMode = "current";
-	else highlightMode = "parent";
+	const newMode = itemIndent + 2 < offsetX - element.getBoundingClientRect().left ? "current" : "parent";
+	if (newMode !== highlightMode) {
+		highlightMode = newMode;
+		// Force view update when highlight mode changes
+		editor.dispatch({});
+	}
 };
 
 export default class DragNDropPlugin extends Plugin {
@@ -494,8 +526,7 @@ export default class DragNDropPlugin extends Plugin {
 			dragover(event: DragEvent, editor: EditorView) {
 				if (event.target instanceof HTMLElement) {
 					const line = event.target.closest(".cm-line");
-					processDragOver(line as HTMLElement, event.clientX);
-					editor.dispatch({});
+					processDragOver(line as HTMLElement, event.clientX, editor);
 				}
 				event.preventDefault();
 			},
@@ -511,8 +542,21 @@ export default class DragNDropPlugin extends Plugin {
 			dragend(event: DragEvent, view: EditorView) {
 				// Clear highlights when drag ends (whether dropped or cancelled)
 				lineHightlight = emptyRange();
+				highlightMode = "current"; // Reset to default mode
 				document.body.classList.remove("is-dragging");
-				view.dispatch({}); // Force view update to clear decorations
+				
+				// Also remove any lingering CSS classes from DOM elements as a safety measure
+				const editorElement = view.dom;
+				const dragOverElements = editorElement.querySelectorAll(".drag-over, .drag-last, .drag-parent-last");
+				dragOverElements.forEach(el => {
+					el.classList.remove("drag-over", "drag-last", "drag-parent-last");
+				});
+				
+				// Force view update with a transaction to ensure decorations refresh
+				view.dispatch({
+					effects: [],
+					annotations: []
+				});
 			},
 		});
 		this.addSettingTab(new DragNDropSettings(this.app, this));
