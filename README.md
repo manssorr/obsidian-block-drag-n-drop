@@ -118,7 +118,7 @@ This enhanced version combines contributions from multiple developers:
   - Branch: `view_taken_from_domEventHander`
   - Fixed drag event handling using `EditorView.domEventHandlers`
 
-* **Enhanced Version**: [manssorr/obsidian-block-drag-n-drop-updated](https://github.com/manssorr/obsidian-block-drag-n-drop-updated)
+* **Enhanced Version**: [manssorr/obsidian-block-drag-n-drop](https://github.com/manssorr/obsidian-block-drag-n-drop)
   - Bug fixes for highlight persistence
   - UI enhancements (Notion-style handle, drag preview)
   - Performance optimizations
