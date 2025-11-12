@@ -20,12 +20,12 @@ settings:
         default: rgb(0, 0, 0)
 */
 
+/* Basic gutter marker - works with 6-dot SVG */
 .cm-gutter .dnd-gutter-marker {
-    opacity: 50%;
-}
-
-.cm-gutter .dnd-gutter-marker:hover {    
-    opacity: 100%;
+    opacity: 0;
+    color: var(--dnd-gutter-handle) !important;
+    cursor: pointer;
+    margin-left: 2px;
 }
 
 .markdown-source-view.mod-cm6 .cm-gutters {
@@ -36,15 +36,27 @@ settings:
     opacity: 0;
 }
 
-.dnd-render-draggable-content .dnd-drag-container {
-    color: var(--text-normal) !important;
-}
-
 .dnd-gutter-marker {
     color: var(--dnd-gutter-handle) !important;
     cursor: pointer;
 }
 
+/* Show on hover (default) */
+.cm-line:hover ~ .cm-gutter .dnd-gutter-marker,
+.cm-gutter .dnd-gutter-marker:hover {    
+    opacity: 50%;
+}
+
+/* Always show mode (NEW - from visibility toggle) */
+body.dnd-always-show-handles .cm-gutter .dnd-gutter-marker {
+    opacity: 0.5;
+}
+
+body.dnd-always-show-handles .cm-gutter .dnd-gutter-marker:hover {
+    opacity: 1;
+}
+
+/* Basic drag over highlighting */
 .drag-over {
     background-color: rgba(0, 255, 255, 0.099);
 }
@@ -53,7 +65,9 @@ settings:
     background-color: rgba(255, 0, 0, 0.099);
 }
 
-.drag-last span:not(.cm-hmd-list-indent, .cm-indent), .drag-parent-last {
+/* Simple drop indicator */
+.drag-last span:not(.cm-hmd-list-indent, .cm-indent), 
+.drag-parent-last {
     border-bottom: 2px solid black;
 }
 
@@ -61,11 +75,31 @@ settings:
     display: none !important;
 }
 
+/* Basic drag container */
 .dnd-drag-container {
-    position:absolute;
+    position: absolute;
 }
 
 .dnd-drag-container-inactive {
     display: none !important;
     position: relative;
+}
+
+/* Drag preview shadow (Notion-style) */
+.dnd-drag-preview {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    padding: 4px 8px;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0.9;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 10000;
 }

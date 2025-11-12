@@ -72,12 +72,82 @@ const dragHandle = (line: number, app: App) =>
 			// TODO: think how to move paragraphs
 			// if (!block || (block.type !== "list" && block.type !== "paragraph"))
 			// 	return drag;
-			drag.appendChild(document.createTextNode("⋮⋮"));
+			
+			// Create Notion-style 6-dot handle using SVG
+			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			svg.setAttribute("viewBox", "0 0 10 16");
+			svg.setAttribute("width", "10");
+			svg.setAttribute("height", "16");
+			svg.style.display = "block";
+			svg.style.fill = "currentColor";
+			svg.style.opacity = "0.3";
+			
+			// Create 6 dots in a 2x3 grid
+			const dotPositions = [
+				{ x: 2, y: 3 },  // top left
+				{ x: 7, y: 3 },  // top right
+				{ x: 2, y: 8 },  // middle left
+				{ x: 7, y: 8 },  // middle right
+				{ x: 2, y: 13 }, // bottom left
+				{ x: 7, y: 13 }  // bottom right
+			];
+			
+			dotPositions.forEach(pos => {
+				const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				circle.setAttribute("cx", pos.x.toString());
+				circle.setAttribute("cy", pos.y.toString());
+				circle.setAttribute("r", "1.5");
+				svg.appendChild(circle);
+			});
+			
+			drag.appendChild(svg);
 			drag.className = "dnd-gutter-marker";
 			drag.setAttribute("draggable", "true");
-			drag.addEventListener("dragstart", (e) => {
+			
+			drag.addEventListener("dragstart", (e: DragEvent) => {
+				if (!e.dataTransfer) return;
 				e.dataTransfer.setData("line", `${line}`);
+				e.dataTransfer.effectAllowed = "copyMove";
+				
+				// Get line content for drag preview
+				const lineContent = editor.state.doc.line(line).text.trim();
+				const previewText = lineContent || "...";
+				
+				// Create drag preview shadow
+				const preview = document.createElement("div");
+				preview.className = "dnd-drag-preview";
+				preview.textContent = previewText;
+				document.body.appendChild(preview);
+				
+				// Set custom drag image with offset
+				e.dataTransfer.setDragImage(preview, 10, 10);
+				
+				// Clean up preview after drag starts
+				setTimeout(() => preview.remove(), 0);
+				
+				// Add dragging class to body for enhanced visual feedback
+				document.body.classList.add("is-dragging");
 			});
+			
+			drag.addEventListener("dragend", () => {
+				document.body.classList.remove("is-dragging");
+				// Clear highlights when drag ends from the handle
+				// Use setTimeout to ensure this runs after any editor-level dragend handlers
+				setTimeout(() => {
+					if (hasActiveHighlights()) {
+						clearHighlightsForAllEditors(app);
+					}
+				}, 0);
+			});
+			
+			drag.addEventListener("mouseenter", () => {
+				svg.style.opacity = "0.6";
+			});
+			
+			drag.addEventListener("mouseleave", () => {
+				svg.style.opacity = "0.3";
+			});
+			
 			return drag;
 		}
 	})();
@@ -165,6 +235,7 @@ function processDrop(
 	dropMode: "current" | "parent",
 	targetEditor: EditorView
 ) {
+	if (!event.dataTransfer) return;
 	const sourceLineNum = parseInt(event.dataTransfer.getData("line"), 10);
 	// @ts-ignore
 	const targetLinePos = event.target.cmView.posAtStart;
@@ -204,7 +275,6 @@ function processDrop(
 				targetLine.number >= pos.start.line &&
 				targetLine.number <= pos.end.line
 			) {
-				console.log("Moved inside same block - do nothing");
 				return;
 			}
 		}
@@ -264,7 +334,6 @@ function processDrop(
 			operations = { source: [changes], target: [insertBlockOp] };
 		}
 
-		console.log("Move item ", { dropMode, type }, operations);
 		const { source, target } = operations;
 		if (sourceEditor == targetEditor)
 			sourceEditor.dispatch({ changes: [...source, ...target] });
@@ -331,10 +400,13 @@ function getAllLinesForCurrentItem(
 		.filter(({ line }) => !!line);
 }
 
+// Cache empty decoration set for efficiency - reused instead of creating new instances
+const EMPTY_DECORATION_SET = new RangeSetBuilder<Decoration>().finish();
+
 function emptyRange(): EditorHightlight {
 	return {
-		current: new RangeSetBuilder<Decoration>().finish(),
-		parent: new RangeSetBuilder<Decoration>().finish(),
+		current: EMPTY_DECORATION_SET,
+		parent: EMPTY_DECORATION_SET,
 	};
 }
 
@@ -372,9 +444,12 @@ function highlightWholeItem(app: App, target: Element, editor: EditorView) {
 				)
 				: currentLines;
 
+		const currentDecorations = buildLineDecorations(currentLines, dragDestination);
+		const parentDecorations = buildLineDecorations(parentLines, dragParentDestination);
+		
 		lineHightlight = {
-			current: buildLineDecorations(currentLines, dragDestination),
-			parent: buildLineDecorations(parentLines, dragParentDestination),
+			current: currentDecorations,
+			parent: parentDecorations,
 		};
 
 		editor.dispatch({});
@@ -394,6 +469,7 @@ interface DndPluginSettings {
 	simple_different_panes: OperationType;
 	shift: OperationType;
 	alt: OperationType;
+	show_handle_on_hover: boolean;
 }
 
 type OperationType = "move" | "embed" | "copy" | "none";
@@ -403,6 +479,7 @@ const DEFAULT_SETTINGS: DndPluginSettings = {
 	simple_different_panes: "embed",
 	shift: "copy",
 	alt: "none",
+	show_handle_on_hover: true,
 };
 
 const showHighlight = ViewPlugin.fromClass(class { }, {
@@ -418,6 +495,32 @@ const processDragOver = (element: HTMLElement, offsetX: number) => {
 	else highlightMode = "parent";
 };
 
+function hasActiveHighlights(): boolean {
+	// Check if highlights are active by comparing against empty decoration set
+	return lineHightlight.current !== EMPTY_DECORATION_SET || 
+	       lineHightlight.parent !== EMPTY_DECORATION_SET;
+}
+
+function clearHighlightsForAllEditors(app: App) {
+	// Clear highlight state
+	lineHightlight = emptyRange();
+	highlightMode = "current";
+	document.body.classList.remove("is-dragging");
+	
+	// Get all markdown views and dispatch updates to refresh decorations
+	const markdownLeaves = app.workspace.getLeavesOfType("markdown");
+	for (const leaf of markdownLeaves) {
+		const view = leaf.view as MarkdownView;
+		if (view?.editor) {
+			// @ts-ignore - cm is the EditorView instance
+			const editorView: EditorView = view.editor.cm;
+			if (editorView) {
+				editorView.dispatch({});
+			}
+		}
+	}
+}
+
 export default class DragNDropPlugin extends Plugin {
 	settings: DndPluginSettings;
 
@@ -425,7 +528,7 @@ export default class DragNDropPlugin extends Plugin {
 		const app = this.app;
 		const settings = await this.loadSettings();
 		const dragEventHandlers = EditorView.domEventHandlers({
-			dragover(event, editor) {
+			dragover(event: DragEvent, editor: EditorView) {
 				if (event.target instanceof HTMLElement) {
 					const line = event.target.closest(".cm-line");
 					processDragOver(line as HTMLElement, event.clientX);
@@ -433,14 +536,21 @@ export default class DragNDropPlugin extends Plugin {
 				}
 				event.preventDefault();
 			},
-			dragenter(event, view) {
+			dragenter(event: DragEvent, view: EditorView) {
 				if (event.target instanceof Element)
 					highlightWholeItem(app, event.target, view);
 				event.preventDefault();
 			},
-			drop(event, view) {
+			drop(event: DragEvent, view: EditorView) {
 				processDrop(app, event, settings, highlightMode, view);
 				lineHightlight = emptyRange();
+			},
+			dragend(event: DragEvent, view: EditorView) {
+				// Clear highlights when drag ends (whether dropped or cancelled)
+				lineHightlight = emptyRange();
+				highlightMode = "current";
+				document.body.classList.remove("is-dragging");
+				view.dispatch({});
 			},
 		});
 		this.addSettingTab(new DragNDropSettings(this.app, this));
@@ -449,6 +559,52 @@ export default class DragNDropPlugin extends Plugin {
 			showHighlight,
 			dragEventHandlers,
 		]);
+		// Apply handle visibility setting
+		this.updateHandleVisibility();
+		
+		// Register global event listeners to clear highlights on drag interruption
+		this.registerDomEvent(document, "dragend", (event: DragEvent) => {
+			clearHighlightsForAllEditors(this.app);
+		});
+		
+		this.registerDomEvent(window, "blur", () => {
+			clearHighlightsForAllEditors(this.app);
+		});
+		
+		this.registerDomEvent(document, "visibilitychange", () => {
+			if (document.hidden) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+		
+		// Clear highlights on click if any are active
+		this.registerDomEvent(document, "mousedown", (event: MouseEvent) => {
+			// Only clear if highlights are active and we're not currently dragging
+			if (hasActiveHighlights() && !document.body.classList.contains("is-dragging")) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+		
+		// Clear highlights on mouse release (after drag) if any exist
+		// Use window with capture phase to catch events even during drag operations
+		this.registerDomEvent(window, "mouseup", (event: MouseEvent) => {
+			// Clear highlights if they exist, regardless of drag state
+			if (hasActiveHighlights()) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+		
+		// Also listen for pointerup as a fallback (works better with touch/trackpad)
+		this.registerDomEvent(window, "pointerup", (event: PointerEvent) => {
+			// Clear highlights if they exist
+			if (hasActiveHighlights()) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+	}
+	
+	updateHandleVisibility() {
+		document.body.toggleClass('dnd-always-show-handles', !this.settings.show_handle_on_hover);
 	}
 
 	async loadSettings() {
@@ -462,6 +618,7 @@ export default class DragNDropPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.updateHandleVisibility();
 	}
 }
 
@@ -483,7 +640,7 @@ class DragNDropSettings extends PluginSettingTab {
 		});
 
 		const addDropdownVariants =
-			(settingName: keyof DndPluginSettings) =>
+			(settingName: "simple_same_pane" | "simple_different_panes" | "shift" | "alt") =>
 				(dropDown: DropdownComponent) => {
 					dropDown.addOption("none", "Do nothing");
 					dropDown.addOption("embed", "Embed link");
@@ -511,5 +668,23 @@ class DragNDropSettings extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Drag'n'drop with Alt/Meta")
 			.addDropdown(addDropdownVariants("alt"));
+
+		containerEl.createEl("h2", {
+			text: "Appearance",
+		});
+
+		new Setting(containerEl)
+			.setName("Drag handle visibility")
+			.setDesc("Control when the six-dot drag handles are visible")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("hover", "Show on hover only")
+					.addOption("always", "Always visible")
+					.setValue(this.plugin.settings.show_handle_on_hover ? "hover" : "always")
+					.onChange(async (value) => {
+						this.plugin.settings.show_handle_on_hover = value === "hover";
+						await this.plugin.saveSettings();
+					});
+			});
 	}
 }
