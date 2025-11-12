@@ -442,14 +442,7 @@ function highlightWholeItem(app: App, target: Element, editor: EditorView) {
 			parent: parentDecorations,
 		};
 
-		// Force view update to show decorations - use requestAnimationFrame to ensure DOM is ready
-		// and create a proper transaction that CodeMirror will recognize
-		requestAnimationFrame(() => {
-			editor.dispatch({
-				effects: [],
-				annotations: []
-			});
-		});
+		editor.dispatch({});
 	} catch (e) {
 		if (
 			e.message.match(
@@ -479,24 +472,17 @@ const DEFAULT_SETTINGS: DndPluginSettings = {
 	show_handle_on_hover: true,
 };
 
-// ViewPlugin that shows drag highlights
-// Uses fromClass with decorations function that reads module-level state
-const showHighlight = ViewPlugin.fromClass(class {
-	decorations() {
-		// This method is called whenever the view updates
-		// It reads the current highlight state from module-level variables
+const showHighlight = ViewPlugin.fromClass(class { }, {
+	decorations: (v) => {
 		return lineHightlight[highlightMode];
-	}
+	},
 });
 
-const processDragOver = (element: HTMLElement, offsetX: number, editor: EditorView) => {
+const processDragOver = (element: HTMLElement, offsetX: number) => {
 	const itemIndent = parseInt(element.style.paddingLeft, 10);
-	const newMode = itemIndent + 2 < offsetX - element.getBoundingClientRect().left ? "current" : "parent";
-	if (newMode !== highlightMode) {
-		highlightMode = newMode;
-		// Force view update when highlight mode changes
-		editor.dispatch({});
-	}
+	if (itemIndent + 2 < offsetX - element.getBoundingClientRect().left)
+		highlightMode = "current";
+	else highlightMode = "parent";
 };
 
 export default class DragNDropPlugin extends Plugin {
@@ -509,7 +495,8 @@ export default class DragNDropPlugin extends Plugin {
 			dragover(event: DragEvent, editor: EditorView) {
 				if (event.target instanceof HTMLElement) {
 					const line = event.target.closest(".cm-line");
-					processDragOver(line as HTMLElement, event.clientX, editor);
+					processDragOver(line as HTMLElement, event.clientX);
+					editor.dispatch({});
 				}
 				event.preventDefault();
 			},
@@ -521,25 +508,6 @@ export default class DragNDropPlugin extends Plugin {
 			drop(event: DragEvent, view: EditorView) {
 				processDrop(app, event, settings, highlightMode, view);
 				lineHightlight = emptyRange();
-			},
-			dragend(event: DragEvent, view: EditorView) {
-				// Clear highlights when drag ends (whether dropped or cancelled)
-				lineHightlight = emptyRange();
-				highlightMode = "current"; // Reset to default mode
-				document.body.classList.remove("is-dragging");
-				
-				// Also remove any lingering CSS classes from DOM elements as a safety measure
-				const editorElement = view.dom;
-				const dragOverElements = editorElement.querySelectorAll(".drag-over, .drag-last, .drag-parent-last");
-				dragOverElements.forEach(el => {
-					el.classList.remove("drag-over", "drag-last", "drag-parent-last");
-				});
-				
-				// Force view update with a transaction to ensure decorations refresh
-				view.dispatch({
-					effects: [],
-					annotations: []
-				});
 			},
 		});
 		this.addSettingTab(new DragNDropSettings(this.app, this));
