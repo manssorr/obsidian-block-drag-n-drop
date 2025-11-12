@@ -60,16 +60,6 @@ function generateId(): string {
 	return Math.random().toString(36).substr(2, 6);
 }
 
-function isRTLText(text: string): boolean {
-	// RTL character ranges:
-	// Arabic: \u0600-\u06FF
-	// Hebrew: \u0590-\u05FF
-	// Persian/Farsi: Uses Arabic script
-	// Other RTL scripts
-	const rtlPattern = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-	return rtlPattern.test(text);
-}
-
 const dragHandle = (line: number, app: App) =>
 	new (class extends GutterMarker {
 		toDOM(editor: EditorView) {
@@ -82,13 +72,6 @@ const dragHandle = (line: number, app: App) =>
 			// TODO: think how to move paragraphs
 			// if (!block || (block.type !== "list" && block.type !== "paragraph"))
 			// 	return drag;
-			
-			// Detect RTL text direction
-			const lineText = editor.state.doc.line(line).text;
-			const isRTL = isRTLText(lineText);
-			if (isRTL) {
-				drag.setAttribute("data-rtl", "true");
-			}
 			
 			// Create Notion-style 6-dot handle using SVG
 			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

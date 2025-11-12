@@ -28,14 +28,6 @@ settings:
     margin-left: 2px;
 }
 
-/* RTL support - position handle on right side of gutter for RTL content */
-.cm-gutter[dir="rtl"] .dnd-gutter-marker,
-.dnd-gutter-marker[data-rtl="true"] {
-    margin-left: 0;
-    margin-right: 2px;
-    order: 1; /* Move to end in flex layout (right side) */
-}
-
 .markdown-source-view.mod-cm6 .cm-gutters {
     pointer-events: all;
 }
