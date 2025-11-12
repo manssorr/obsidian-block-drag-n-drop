@@ -3,6 +3,20 @@
 
 > **Note:** This is a modified version of the original plugin with bug fixes and enhancements. The original plugin can be found at: [artem-barmin/obsidian-block-drag-n-drop](https://github.com/artem-barmin/obsidian-block-drag-n-drop)
 
+## 🎉 What's New in This Enhanced Version
+
+This fork includes significant improvements that make the plugin more reliable and polished:
+
+- ✅ **Fixed highlight persistence bug** - Highlights now properly clear in all scenarios (dragging outside editor, switching windows, clicking, etc.)
+- ✅ **Modern Notion-style drag handle** - Beautiful 6-dot SVG handle replaces the old text-based one
+- ✅ **Custom drag preview** - Enhanced visual feedback with shadow effect during drag
+- ✅ **Handle visibility toggle** - Choose to show handles on hover or always visible
+- ✅ **Better Electron compatibility** - Improved event handling for Obsidian's Electron environment
+- ✅ **Performance optimizations** - Efficient highlight clearing with decoration set reuse
+- ✅ **Fixed build issues** - Resolved TypeScript errors and build configuration problems
+
+**Try it out!** This version addresses the highlight persistence issues and provides a smoother drag-and-drop experience.
+
 # Demo
 
 ![Demo](https://raw.githubusercontent.com/artem-barmin/obsidian-block-drag-n-drop/master/demo/demo.gif)
