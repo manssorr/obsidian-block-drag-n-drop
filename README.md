@@ -1,6 +1,8 @@
 [![Project Status: Inactive – The project has reached a stable, usable state but is no longer being actively developed; support/maintenance will be provided as time allows.](https://www.repostatus.org/badges/latest/inactive.svg)](https://www.repostatus.org/#inactive)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/artem-barmin/obsidian-block-drag-n-drop)
 
+> **Note:** This is a modified version of the original plugin with bug fixes and enhancements. The original plugin can be found at: [artem-barmin/obsidian-block-drag-n-drop](https://github.com/artem-barmin/obsidian-block-drag-n-drop)
+
 # Demo
 
 ![Demo](https://raw.githubusercontent.com/artem-barmin/obsidian-block-drag-n-drop/master/demo/demo.gif)
@@ -58,3 +60,41 @@ Download main.js, manifest.json, styles.css from the latest release and put them
 # Limitations
 
 Plugin was developed and tested only with Live preview editor. Legacy editor not supported
+
+# Changelog
+
+## Enhanced Version (Modified Fork)
+
+This version includes significant bug fixes and improvements over the original plugin:
+
+### Bug Fixes
+
+- **Fixed highlight persistence bug**: Highlights now properly clear when:
+  - Dragging outside the editor area
+  - Switching windows or applications
+  - Pressing Escape during drag
+  - Clicking anywhere after a drag operation
+  - Releasing mouse button after drag
+  - Window loses focus or becomes hidden
+- **Fixed TypeScript compilation errors**: Updated dependencies and type annotations
+- **Fixed build configuration**: Corrected ESBuild setup for proper plugin bundling
+
+### UI Enhancements
+
+- **Notion-style drag handle**: Replaced text-based handle with a modern 6-dot SVG handle
+- **Custom drag preview**: Added shadow effect to drag preview for better visual feedback
+- **Handle visibility toggle**: Added setting to show handles on hover or always visible
+
+### Technical Improvements
+
+- **Optimized highlight clearing**: Implemented efficient decoration set reuse
+- **Comprehensive event handling**: Added multiple event listeners (dragend, blur, visibilitychange, mouseup, pointerup) to ensure highlights always clear properly
+- **Better Electron compatibility**: Improved event handling for Electron/Obsidian environment
+- **Code quality**: Improved type safety and error handling
+
+### Original Plugin
+
+The original plugin by Artem Barmin can be found at:
+- **Repository**: https://github.com/artem-barmin/obsidian-block-drag-n-drop
+- **Author**: Artem Barmin
+- **License**: GPLV3
