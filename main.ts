@@ -108,6 +108,23 @@ const dragHandle = (line: number, app: App) =>
 				if (!e.dataTransfer) return;
 				e.dataTransfer.setData("line", `${line}`);
 				e.dataTransfer.effectAllowed = "copyMove";
+				
+				// Get line content for drag preview
+				const lineContent = editor.state.doc.line(line).text.trim();
+				const previewText = lineContent || "...";
+				
+				// Create drag preview shadow
+				const preview = document.createElement("div");
+				preview.className = "dnd-drag-preview";
+				preview.textContent = previewText;
+				document.body.appendChild(preview);
+				
+				// Set custom drag image with offset
+				e.dataTransfer.setDragImage(preview, 10, 10);
+				
+				// Clean up preview after drag starts
+				setTimeout(() => preview.remove(), 0);
+				
 				// Add dragging class to body for enhanced visual feedback
 				document.body.classList.add("is-dragging");
 			});
@@ -490,6 +507,12 @@ export default class DragNDropPlugin extends Plugin {
 			drop(event: DragEvent, view: EditorView) {
 				processDrop(app, event, settings, highlightMode, view);
 				lineHightlight = emptyRange();
+			},
+			dragend(event: DragEvent, view: EditorView) {
+				// Clear highlights when drag ends (whether dropped or cancelled)
+				lineHightlight = emptyRange();
+				document.body.classList.remove("is-dragging");
+				view.dispatch({}); // Force view update to clear decorations
 			},
 		});
 		this.addSettingTab(new DragNDropSettings(this.app, this));

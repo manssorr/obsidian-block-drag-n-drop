@@ -83,3 +83,22 @@ body.dnd-always-show-handles .cm-gutter .dnd-gutter-marker:hover {
     display: none !important;
     position: relative;
 }
+
+/* Drag preview shadow (Notion-style) */
+.dnd-drag-preview {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    padding: 4px 8px;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0.9;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 10000;
+}
