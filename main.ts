@@ -131,6 +131,13 @@ const dragHandle = (line: number, app: App) =>
 			
 			drag.addEventListener("dragend", () => {
 				document.body.classList.remove("is-dragging");
+				// Clear highlights when drag ends from the handle
+				// Use setTimeout to ensure this runs after any editor-level dragend handlers
+				setTimeout(() => {
+					if (hasActiveHighlights()) {
+						clearHighlightsForAllEditors(app);
+					}
+				}, 0);
 			});
 			
 			drag.addEventListener("mouseenter", () => {
@@ -574,6 +581,23 @@ export default class DragNDropPlugin extends Plugin {
 		this.registerDomEvent(document, "mousedown", (event: MouseEvent) => {
 			// Only clear if highlights are active and we're not currently dragging
 			if (hasActiveHighlights() && !document.body.classList.contains("is-dragging")) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+		
+		// Clear highlights on mouse release (after drag) if any exist
+		// Use window with capture phase to catch events even during drag operations
+		this.registerDomEvent(window, "mouseup", (event: MouseEvent) => {
+			// Clear highlights if they exist, regardless of drag state
+			if (hasActiveHighlights()) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+		
+		// Also listen for pointerup as a fallback (works better with touch/trackpad)
+		this.registerDomEvent(window, "pointerup", (event: PointerEvent) => {
+			// Clear highlights if they exist
+			if (hasActiveHighlights()) {
 				clearHighlightsForAllEditors(this.app);
 			}
 		});
