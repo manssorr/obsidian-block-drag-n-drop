@@ -106,9 +106,20 @@ This version includes significant bug fixes and improvements over the original p
 - **Better Electron compatibility**: Improved event handling for Electron/Obsidian environment
 - **Code quality**: Improved type safety and error handling
 
-### Original Plugin
+### Credits and Acknowledgments
 
-The original plugin by Artem Barmin can be found at:
-- **Repository**: https://github.com/artem-barmin/obsidian-block-drag-n-drop
-- **Author**: Artem Barmin
-- **License**: GPLV3
+This enhanced version combines contributions from multiple developers:
+
+* **Original Plugin**: [artem-barmin/obsidian-block-drag-n-drop](https://github.com/artem-barmin/obsidian-block-drag-n-drop)
+  - **Author**: Artem Barmin
+  - **License**: GPLV3
+
+* **h-nari's Contributions**: [h-nari/obsidian-block-drag-n-drop](https://github.com/h-nari/obsidian-block-drag-n-drop)
+  - Branch: `view_taken_from_domEventHander`
+  - Fixed drag event handling using `EditorView.domEventHandlers`
+
+* **Enhanced Version**: [manssorr/obsidian-block-drag-n-drop-updated](https://github.com/manssorr/obsidian-block-drag-n-drop-updated)
+  - Bug fixes for highlight persistence
+  - UI enhancements (Notion-style handle, drag preview)
+  - Performance optimizations
+  - Better Electron compatibility
