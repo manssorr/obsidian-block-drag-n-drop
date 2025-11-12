@@ -393,10 +393,13 @@ function getAllLinesForCurrentItem(
 		.filter(({ line }) => !!line);
 }
 
+// Cache empty decoration set for efficiency - reused instead of creating new instances
+const EMPTY_DECORATION_SET = new RangeSetBuilder<Decoration>().finish();
+
 function emptyRange(): EditorHightlight {
 	return {
-		current: new RangeSetBuilder<Decoration>().finish(),
-		parent: new RangeSetBuilder<Decoration>().finish(),
+		current: EMPTY_DECORATION_SET,
+		parent: EMPTY_DECORATION_SET,
 	};
 }
 
@@ -485,6 +488,32 @@ const processDragOver = (element: HTMLElement, offsetX: number) => {
 	else highlightMode = "parent";
 };
 
+function hasActiveHighlights(): boolean {
+	// Check if highlights are active by comparing against empty decoration set
+	return lineHightlight.current !== EMPTY_DECORATION_SET || 
+	       lineHightlight.parent !== EMPTY_DECORATION_SET;
+}
+
+function clearHighlightsForAllEditors(app: App) {
+	// Clear highlight state
+	lineHightlight = emptyRange();
+	highlightMode = "current";
+	document.body.classList.remove("is-dragging");
+	
+	// Get all markdown views and dispatch updates to refresh decorations
+	const markdownLeaves = app.workspace.getLeavesOfType("markdown");
+	for (const leaf of markdownLeaves) {
+		const view = leaf.view as MarkdownView;
+		if (view?.editor) {
+			// @ts-ignore - cm is the EditorView instance
+			const editorView: EditorView = view.editor.cm;
+			if (editorView) {
+				editorView.dispatch({});
+			}
+		}
+	}
+}
+
 export default class DragNDropPlugin extends Plugin {
 	settings: DndPluginSettings;
 
@@ -509,6 +538,13 @@ export default class DragNDropPlugin extends Plugin {
 				processDrop(app, event, settings, highlightMode, view);
 				lineHightlight = emptyRange();
 			},
+			dragend(event: DragEvent, view: EditorView) {
+				// Clear highlights when drag ends (whether dropped or cancelled)
+				lineHightlight = emptyRange();
+				highlightMode = "current";
+				document.body.classList.remove("is-dragging");
+				view.dispatch({});
+			},
 		});
 		this.addSettingTab(new DragNDropSettings(this.app, this));
 		this.registerEditorExtension([
@@ -518,6 +554,29 @@ export default class DragNDropPlugin extends Plugin {
 		]);
 		// Apply handle visibility setting
 		this.updateHandleVisibility();
+		
+		// Register global event listeners to clear highlights on drag interruption
+		this.registerDomEvent(document, "dragend", (event: DragEvent) => {
+			clearHighlightsForAllEditors(this.app);
+		});
+		
+		this.registerDomEvent(window, "blur", () => {
+			clearHighlightsForAllEditors(this.app);
+		});
+		
+		this.registerDomEvent(document, "visibilitychange", () => {
+			if (document.hidden) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
+		
+		// Clear highlights on click if any are active
+		this.registerDomEvent(document, "mousedown", (event: MouseEvent) => {
+			// Only clear if highlights are active and we're not currently dragging
+			if (hasActiveHighlights() && !document.body.classList.contains("is-dragging")) {
+				clearHighlightsForAllEditors(this.app);
+			}
+		});
 	}
 	
 	updateHandleVisibility() {
